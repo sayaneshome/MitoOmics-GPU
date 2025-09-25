@@ -1,0 +1,29 @@
+cell_type,count
+malignant cell,6132
+T cell,5015
+"CD4-positive, alpha-beta T cell",2608
+fibroblast,2601
+endothelial cell,1753
+mammary gland epithelial cell,1741
+luminal epithelial cell of mammary gland,1662
+myeloid cell,1644
+"CD8-positive, alpha-beta T cell",1511
+macrophage,892
+fibroblast of breast,884
+B cell,777
+pericyte,747
+plasmablast,460
+memory B cell,325
+monocyte,310
+natural killer cell,242
+blood vessel endothelial cell,195
+mature NK T cell,156
+naive B cell,74
+basal-myoepithelial cell of mammary gland,70
+mast cell,45
+adipocyte,45
+"plasmacytoid dendritic cell, human",44
+endothelial cell of lymphatic vessel,28
+keratinocyte,18
+blood vessel smooth muscle cell,16
+plasma cell,5

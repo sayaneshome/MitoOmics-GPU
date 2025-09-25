@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""
+scverse_api.py
+Idiomatic scverse/scanpy API for MitoOmics-GPU.
+
+Adds:
+- pp.score_mito_programs(adata, genesets_df, layer=None)
+    -> per-cell program scores in adata.obsm['mitoomics_programs']
+- tl.mhi(adata, ev_df=None, whitelist=None)
+    -> subject-level table in adata.uns['mitoomics']['subject_table']
+    -> per-cell MHI (optional) in adata.obs['MHI_cell'] if requested
+- tl.pca_umap_gpu(adata, ...)
+    -> writes embeddings into adata.obsm['X_pca_gpu'], adata.obsm['X_umap_gpu'] if GPU
+"""
+from __future__ import annotations
+import pandas as pd
+import numpy as np
+import anndata as ad
+from dataclasses import dataclass
+from typing import Optional, Set
+
+try:
+    import rapids_singlecell as rsc   # optional
+    _HAS_RSC = True
+except Exception:
+    _HAS_RSC = False
+
+from .gpu_backend import GB
+from .gpu_accel import pca, umap, score_gene_sets, ev_index, corr_matrix
+
+@dataclass
+class MitoOmicsConfig:
+    layer: Optional[str] = None
+    neighbors: int = 15
+    compute_cell_mhi: bool = False
+
+class pp:
+    @staticmethod
+    def score_mito_programs(adata: ad.AnnData, genesets_df: pd.DataFrame, layer: Optional[str] = None):
+        scores = score_gene_sets(adata, genesets_df, layer=layer, method="zmean")
+        adata.obsm["mitoomics_programs"] = scores.loc[adata.obs_names].values
+        adata.uns.setdefault("mitoomics", {})["program_names"] = list(scores.columns)
+        return scores
+
+class tl:
+    @staticmethod
+    def pca_umap_gpu(adata: ad.AnnData, n_pcs=50, n_neighbors=15, layer: Optional[str] = None):
+        X = adata.layers[layer] if layer else adata.X
+        if hasattr(X, "toarray"): X = X.toarray()
+        X = np.asarray(X, dtype=float)
+        Xp, _ = pca(X, n_components=min(n_pcs, X.shape[1]))
+        adata.obsm["X_pca_gpu" if GB.has_gpu else "X_pca_cpu"] = Xp
+        try:
+            U = umap(Xp, n_components=2, n_neighbors=n_neighbors)
+            adata.obsm["X_umap_gpu" if GB.has_gpu else "X_umap_cpu"] = U
+        except Exception:
+            pass
+        return adata
+
+    @staticmethod
+    def mhi(adata: ad.AnnData,
+            genesets_df: pd.DataFrame,
+            ev_df: Optional[pd.DataFrame] = None,
+            whitelist: Optional[Set[str]] = None,
+            config: MitoOmicsConfig = MitoOmicsConfig()):
+        # 1) program scores per cell
+        scores = pp.score_mito_programs(adata, genesets_df, layer=config.layer)
+        scores["subject_id"] = adata.obs["subject_id"].values
+        subj = scores.groupby("subject_id").mean(numeric_only=True)
+
+        # 2) EV index (optional)
+        ev_idx = None
+        if ev_df is not None and not ev_df.empty:
+            subj_col = next((c for c in ev_df.columns if any(k in c.lower() for k in ["subject","sample","donor","patient"])), None)
+            prot_col = next((c for c in ev_df.columns if any(k in c.lower() for k in ["protein","gene","symbol","accession"])), None)
+            val_col  = next((c for c in ev_df.columns if any(k in c.lower() for k in ["abundance","intensity","lfq","reporter","value","quantity"])), None)
+            if subj_col and prot_col and val_col:
+                wl = {w.upper() for w in (whitelist or {"TOMM20","VDAC1","ATP5F1A","ATP5F1B","ATP5MC1","SDHA","COX4I1",
+                                                        "NDUFS1","NDUFS2","NDUFA9","MFN2","OPA1","DNM1L","PHB2","PINK1","PRKN","TFAM","SLC25A3"})}
+                ev_idx = ev_index(ev_df, wl, subject_col=subj_col, protein_col=prot_col, value_col=val_col)
+
+        # 3) compose MHI (transparent z-mean)
+        want = [c for c in subj.columns if any(k in c.lower() for k in ["copy","fusion","fission","mitophagy","biogenesis"])]
+        M = subj[want].copy()
+        M = (M - M.mean())/(M.std(ddof=0)+1e-8)
+        if ev_idx is not None and not ev_idx.empty:
+            M = M.join(ev_idx, how="left")
+            M["EV_index"] = (M["EV_index"] - M["EV_index"].mean())/(M["EV_index"].std(ddof=0)+1e-8)
+        M["MHI"] = M.mean(axis=1)
+
+        # 4) write to adata.uns
+        adata.uns.setdefault("mitoomics", {})
+        adata.uns["mitoomics"]["subject_table"] = M.reset_index()
+        adata.uns["mitoomics"]["gpu_used"] = GB.has_gpu
+
+        # 5) optional cell-level MHI (maps subject MHI back to each cell)
+        if config.compute_cell_mhi:
+            adata.obs["MHI_cell"] = adata.obs["subject_id"].map(M["MHI"])
+
+        return M

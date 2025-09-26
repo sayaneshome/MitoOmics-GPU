@@ -6,7 +6,7 @@ Hackathon project by *Team Go Getters* at the NVIDIA Accelerate Omics Hackathon 
 
 ## 👥 Team Go Getters
 
-* *Sayane Shome, PhD* (AI in Healthcare, Stanford)
+* *Sayane Shome, PhD* (AI in Healthcare, Stanford)[Team Lead]
 * *Seema Parte, PhD* (Ophthalmology, Stanford)
 * *Hirenkumar Patel, PhD* (Ophthalmology, Stanford)
 * *Ankit Maisuriya* (PhD candidate, Quantum Photonics, Northeastern)

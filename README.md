@@ -1,5 +1,9 @@
 # MitoOmics-GPU [Work in Progress]
 
+[![PyPI version](https://img.shields.io/pypi/v/mitoomics-gpu.svg?color=blue)](https://pypi.org/project/mitoomics-gpu/)
+[![Downloads](https://static.pepy.tech/badge/mitoomics-gpu)](https://pepy.tech/project/mitoomics-gpu)
+[![Python versions](https://img.shields.io/pypi/pyversions/mitoomics-gpu.svg)](https://pypi.org/project/mitoomics-gpu/)
+
 GPU-accelerated multi-omics pipeline to quantify and visualize the *Mitochondrial Health Index (MHI)* by integrating extracellular vesicle/mitochondrial-derived vesicle (EV/MDV) proteomics with single-cell RNA-seq.
 
 Hackathon project by *Team Go Getters* at the NVIDIA Accelerate Omics Hackathon (8-25 Sept 2025).
@@ -27,7 +31,13 @@ Hackathon project by *Team Go Getters* at the NVIDIA Accelerate Omics Hackathon 
 * Output: a unified *Mitochondrial Health Index (MHI)* summarizing mitochondrial resilience, fitness, and disease risk.
 
 ---
+## ⚡ Installation
 
+```bash
+pip install mitoomics-gpu
+```
+
+---
 ## 🖥️ GPU Acceleration
 
 * Optimized with RAPIDS + GPU backends.
